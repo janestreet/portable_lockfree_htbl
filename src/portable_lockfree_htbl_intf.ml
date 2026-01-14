@@ -27,12 +27,19 @@ module type S_basic = sig @@ portable
         by the implementation.
       - The default [max_buckets] is unspecified and a given [max_buckets] may be adjusted
         by the implementation.
+      - The default [shrinking_allowed] is true. If set to false, the number of buckets
+        will never decrease.
 
       The initial capacity of the internal bucket table is determined by [min_buckets] and
       naturally the internal bucket table will not grow beyond given [max_buckets]. If you
       know the number of bindings a priori, you can set [min_buckets] and [max_buckets] to
       the same value and prevent resizing. *)
-  val create : ?min_buckets:int -> ?max_buckets:int -> 'k hashable -> ('k, 'v) t
+  val create
+    :  ?min_buckets:int
+    -> ?max_buckets:int
+    -> ?shrinking_allowed:bool
+    -> 'k hashable
+    -> ('k, 'v) t
 
   (** [find t key] tries to find a binding of [key] from the hash table [t]. Returns
       [This current] in case the hash table contained a binding of [key] to [current] and
@@ -156,6 +163,12 @@ module type S = sig @@ portable
 
       The returned value may not be the same as given to {!create}. *)
   val max_buckets_of : ('k, 'v) t @ local -> int
+
+  (** [estimate_current_num_buckets_of t] is a non-linearizable estimate of the current
+      number of buckets of the hash table [t].
+
+      If called during a resize, this may under- or over-count buckets. *)
+  val estimate_current_num_buckets_of : ('k, 'v) t @ local -> int
 
   (** [copy t] creates an independent snapshot copy of the hash table [t].
 

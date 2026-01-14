@@ -100,7 +100,7 @@ type ('k, 'v) t_inner =
   ; (* [min_buckets] and [max_buckets] could be [6 + 6] bits as they are powers of 2. *)
     min_buckets : int
   ; max_buckets : int
-  ; pad_to_7_words : int
+  ; shrinking_allowed : bool
   ; pad_to_8_words : int
   }
 
@@ -119,7 +119,13 @@ and hi_buckets =
 let min_buckets_default = 1 lsl 4
 and max_buckets_default = Int.min hi_buckets (1 lsl 30 (* Limit of [hash] *))
 
-let create (type k) ?min_buckets ?max_buckets ((module Hashable) : k hashable) =
+let create
+  (type k)
+  ?min_buckets
+  ?max_buckets
+  ?(shrinking_allowed = true)
+  ((module Hashable) : k hashable)
+  =
   let min_buckets =
     match min_buckets with
     | None -> min_buckets_default
@@ -144,7 +150,7 @@ let create (type k) ?min_buckets ?max_buckets ((module Hashable) : k hashable) =
       ; equal
       ; min_buckets
       ; max_buckets
-      ; pad_to_7_words = 0
+      ; shrinking_allowed
       ; pad_to_8_words = 0
       }
   }
@@ -161,6 +167,10 @@ let hashable_of (type k) (t : (k, _) t) : k hashable =
 
 let min_buckets_of t = t.contended.min_buckets
 let max_buckets_of t = t.contended.max_buckets
+
+let estimate_current_num_buckets_of t =
+  Atomic_array.length (Atomic.Loc.get [%atomic.loc t.contended.state]).buckets
+;;
 
 (** [take bs i] marks the bucket [bs.(i)] as being [Resize _]d, which means that it will
     not be mutated afterwards, and then returns the [Nil | Cons _] spine that was in the
@@ -404,7 +414,8 @@ let[@inline never] attempt_resize t r =
   then (
     let _ : bool = try_resize t r (capacity + capacity) ~clear:false in
     ())
-  else if t.contended.min_buckets < capacity
+  else if t.contended.shrinking_allowed
+          && t.contended.min_buckets < capacity
           && estimated_size + estimated_size + estimated_size < capacity
   then (
     let _ : bool = try_resize t r (capacity lsr 1) ~clear:false in
@@ -718,7 +729,7 @@ let[@inline never] rec clone (t @ local) ~clear backoff =
         ; equal = t.contended.equal
         ; min_buckets = t.contended.min_buckets
         ; max_buckets = t.contended.max_buckets
-        ; pad_to_7_words = 0
+        ; shrinking_allowed = t.contended.shrinking_allowed
         ; pad_to_8_words = 0
         }
     })

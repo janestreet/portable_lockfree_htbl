@@ -1,6 +1,6 @@
 (library
  (name portable_lockfree_htbl)
  (public_name portable_lockfree_htbl)
- (libraries base portable.kernel threads)
+ (libraries base basement portable.kernel)
  (preprocess
-  (pps ppx_fuelproof ppx_jane)))
+  (pps ppx_fuelproof ppx_jane -compare-require-explicit-locality)))

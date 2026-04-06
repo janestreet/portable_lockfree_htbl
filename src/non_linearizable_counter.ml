@@ -21,8 +21,10 @@ let[@inline] zero ~width_of:t =
 
 let create value =
   let width =
-    Bits.ceil_pow_2_minus_1 (Multicore.current_domain () lor 1)
-    (* This potentially adjusts the counter width for the number of domains. *)
+    (* Set the number of counters to [2^n-1] so that the whole array (with header word) is
+       [2^n] words and is potentially less susceptible to false sharing. The [+ 1] makes
+       sure we have enough counters to start with. *)
+    Bits.ceil_pow_2_minus_1 (Basement.Stdlib_shim.Domain.self_index () + 1)
   in
   let t = zero_of ~width in
   Atomic.add (Iarray.unsafe_get t 0) value;
@@ -40,7 +42,7 @@ let[@inline] get t =
 ;;
 
 let[@inline] add_or_resize t delta =
-  let i = Multicore.current_domain () in
+  let i = Basement.Stdlib_shim.Domain.self_index () in
   let n = Iarray.length t in
   if i < n
   then (

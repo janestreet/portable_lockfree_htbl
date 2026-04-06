@@ -168,7 +168,7 @@ let hashable_of (type k) (t : (k, _) t) : k hashable =
 let min_buckets_of t = t.contended.min_buckets
 let max_buckets_of t = t.contended.max_buckets
 
-let estimate_current_num_buckets_of t =
+let num_buckets t =
   Atomic_array.length (Atomic.Loc.get [%atomic.loc t.contended.state]).buckets
 ;;
 
@@ -833,6 +833,20 @@ let update t key ~pure_f =
       else loop t key pure_f (Backoff.once backoff))
   in
   loop t key pure_f Backoff.default
+;;
+
+let non_linearizable_iter (t @ local) ~f =
+  let bs = (Atomic.Loc.get [%atomic.loc t.contended.state]).buckets in
+  for i = 0 to Atomic_array.length bs - 1 do
+    let[@inline] rec loop = function
+      | Nil -> ()
+      | Cons r ->
+        f #(r.key, r.data);
+        loop r.rest
+    in
+    match Atomic_array.unsafe_get bs i with
+    | B (Resize { spine }) | B ((Nil | Cons _) as spine) -> loop spine
+  done
 ;;
 
 let[@inline] add t ~key ~data = try_modify_binding t key data ~set:false Backoff.default

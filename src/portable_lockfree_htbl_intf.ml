@@ -19,7 +19,7 @@ type 'k hashable = (module Hashable with type t = 'k)
 
 module type S_basic = sig @@ portable
   (** Represents a lock-free hash table mapping keys of type ['k] to values of type ['v]. *)
-  type (!'k, !'v) t : value mod contended portable
+  type (!'k, !'v) t : value mod contended non_float portable
 
   (** [create (module Key)] creates a new empty lock-free hash table.
 
@@ -164,11 +164,11 @@ module type S = sig @@ portable
       The returned value may not be the same as given to {!create}. *)
   val max_buckets_of : ('k, 'v) t @ local -> int
 
-  (** [estimate_current_num_buckets_of t] is a non-linearizable estimate of the current
-      number of buckets of the hash table [t].
+  (** [num_buckets t] is the current number of buckets of the hash table [t].
 
-      If called during a resize, this may under- or over-count buckets. *)
-  val estimate_current_num_buckets_of : ('k, 'v) t @ local -> int
+      If called during a resize, this returns the number of buckets before the resize,
+      i.e. this linearizes to a point before the resize. *)
+  val num_buckets : ('k, 'v) t @ local -> int
 
   (** [copy t] creates an independent snapshot copy of the hash table [t].
 
@@ -189,6 +189,22 @@ module type S = sig @@ portable
       non-linearizable manner. During concurrent updates the result will not be precise
       and may even be negative. *)
   val non_linearizable_length : ('k, 'v) t @ local -> int
+
+  (** [non_linearizable_iter t ~f] iterates, in a non-linearizable manner with respect to
+      concurrent mutations, over bindings in the hash table and calls [f #(key, value)] on
+      them.
+
+      The iteration is done in a non-linearizable manner, which means that, when the hash
+      table is being mutated during the iteration, the set of bindings witnessed by the
+      iteration may not correspond to the set of bindings stored in the hash table at any
+      point in time during the iteration. For example, suppose some binding A is removed
+      and after that another binding B is added. This should mean that the two bindings A
+      and B are never present in the table at the same time. However, a non-linearizable
+      iteration over the table could witness any combination of A and B. *)
+  val non_linearizable_iter
+    :  ('k, 'v) t @ local
+    -> f:(#('k * 'v) @ contended portable -> unit) @ local
+    -> unit
 end
 
 module type Portable_lockfree_htbl = sig

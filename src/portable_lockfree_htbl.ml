@@ -405,6 +405,22 @@ let[@inline never] try_resize t r new_capacity ~clear =
   | Compare_failed -> false
 ;;
 
+let rec grow_unless_shrinking_allowed t ~to_num_buckets =
+  if (not t.contended.shrinking_allowed) && to_num_buckets <= t.contended.max_buckets
+  then (
+    let r = Atomic.Loc.get [%atomic.loc t.contended.state] in
+    match r.pending_resize with
+    | Null ->
+      let capacity = Atomic_array.length r.buckets in
+      if capacity < to_num_buckets
+      then (
+        let _ : bool = try_resize t r (capacity + capacity) ~clear:false in
+        grow_unless_shrinking_allowed t ~to_num_buckets)
+    | This resize ->
+      let _ : _ = finish_resize t r resize in
+      grow_unless_shrinking_allowed t ~to_num_buckets)
+;;
+
 let[@inline] mask buckets = Atomic_array.length buckets - 1
 
 let[@inline never] attempt_resize t r =

@@ -170,6 +170,11 @@ module type S = sig @@ portable
       i.e. this linearizes to a point before the resize. *)
   val num_buckets : ('k, 'v) t @ local -> int
 
+  (** [grow_unless_shrinking_allowed t ~to_num_buckets] grows the hash table to have at
+      least the number of specified buckets. Does nothing in case shrinking is allowed or
+      the table already has the specified number of buckets. *)
+  val grow_unless_shrinking_allowed : ('k, 'v) t @ local -> to_num_buckets:int -> unit
+
   (** [copy t] creates an independent snapshot copy of the hash table [t].
 
       This is a linear time operation. *)

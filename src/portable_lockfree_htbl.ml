@@ -1,7 +1,7 @@
-(*=The difficult part of implementing a lock-free hash table is resizing.
+(* The difficult part of implementing a lock-free hash table is resizing.
 
    To determine when to resize, this hash table keeps track of the length or number of
-   bindings in a scalable non-linearizable counter.  A non-linearizable counter is fine as
+   bindings in a scalable non-linearizable counter. A non-linearizable counter is fine as
    for the purpose of resizing it is not necessary to know the precise length.
    Furthermore, reading the length from a scalable counter is expensive enough that this
    implementation reads the length and considers resizing only occasionally -- randomly
@@ -9,21 +9,22 @@
 
    Resizing itself is done mostly incrementally.
 
-   1. Before the incremental phase, a new array of buckets is allocated.  The buckets in
-   the new array are initialized to a physically unique [Resize _] value/block.  Then the
-   root atomic of the hash table is updated to show that a resize is in progress.
+   1. Before the incremental phase, a new array of buckets is allocated. The buckets in
+      the new array are initialized to a physically unique [Resize _] value/block. Then
+      the root atomic of the hash table is updated to show that a resize is in progress.
 
-   2. Resizing proceeds incrementally through the buckets.  Each source bucket is first
-   marked as being [Resize _]d.  After being marked as [Resize _] the source bucket
-   becomes frozen and will no longer be mutated.
+   2. Resizing proceeds incrementally through the buckets. Each source bucket is first
+      marked as being [Resize _]d. After being marked as [Resize _] the source bucket
+      becomes frozen and will no longer be mutated.
 
-   3. Then the bucket/buckets in the new bucket array are/is updated.  The uniqueness of
-   the [Resize _] value in the target buckets is used to check, before update, whether or
-   not the resize is still in progress.  Once all buckets have been processed the root
-   atomic is updated with the new bucket array and the resize is finished.
+   3. Then the bucket/buckets in the new bucket array are/is updated. The uniqueness of
+      the [Resize _] value in the target buckets is used to check, before update, whether
+      or not the resize is still in progress. Once all buckets have been processed the
+      root atomic is updated with the new bucket array and the resize is finished.
 
    The numbers in the below bucket state diagram refer to the above phases:
 
+   {v
                 [1]              [create]
                  |                  |
                  v                  v
@@ -34,40 +35,40 @@
                  |                      +-- Bucket in use
                  |
                  +-- Resize target bucket
+   v}
 
    The number of source and target buckets naturally depends on the operation:
-   - Copy:  1 source, 1 target.
+   - Copy: 1 source, 1 target.
    - Split: 1 source, 2 target.
    - Merge: 2 source, 1 target.
 
    Reads from the hash table can safely ignore resizing and just read from a [Resize _]
-   bucket.  This makes reads wait-free.  A bucket marked as [Resize _] is frozen and
-   writes that would have been to the bucket linearize to a point after the resize.  The
+   bucket. This makes reads wait-free. A bucket marked as [Resize _] is frozen and writes
+   that would have been to the bucket linearize to a point after the resize. The
    linearization point of a read operation on a [Resize _] bucket is at or before the
    point where it read the bucket, which is at a point before the resize was completed.
 
    Writes to the hash table ignore resizing unless they hit a bucket that has been marked
-   as being [Resize _]d.  In that case they will help to finish the resize.  It makes
-   sense performance wise to avoid participating in a resize unless necessary.
+   as being [Resize _]d. In that case they will help to finish the resize. It makes sense
+   performance wise to avoid participating in a resize unless necessary.
 
    As the number of buckets is always a power of two, any odd number is coprime with
-   respect to the number of buckets.  Before going through the buckets, each thread
-   helping with resizing picks a random odd number and uses it as the increment between
-   buckets.  This allows higher parallelism during resizing than having each thread go
-   through the buckets in the same order.
+   respect to the number of buckets. Before going through the buckets, each thread helping
+   with resizing picks a random odd number and uses it as the increment between buckets.
+   This allows higher parallelism during resizing than having each thread go through the
+   buckets in the same order.
 
    Resizing is almost wait-free -- as soon as a thread encounters a [Resize _]d node it
-   will help to finish the resize.  Theoretically, however, a thread that keeps on
-   updating a bucket can prevent a resize from making progress.  That should be unlikely,
-   however, as marking a bucket as being [Resize _]d is faster than a regular update of a
-   bucket. *)
+   will help to finish the resize. Theoretically, however, a thread that keeps on updating
+   a bucket can prevent a resize from making progress. That should be unlikely, however,
+   as marking a bucket as being [Resize _]d is faster than a regular update of a bucket. *)
 
 open Base
 module Backoff = Stdlib.Backoff
 open Portable_kernel
 include Portable_lockfree_htbl_intf
 
-type%fuelproof ('k, 'v, _) bucket : value mod contended portable =
+type ('k, 'v, _) bucket : value mod contended portable =
   | Nil : ('k, 'v, [> `Nil ]) bucket
   | Cons :
       { key : 'k @@ contended portable

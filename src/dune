@@ -3,4 +3,4 @@
  (public_name portable_lockfree_htbl)
  (libraries base basement portable.kernel)
  (preprocess
-  (pps ppx_fuelproof ppx_jane -compare-require-explicit-locality)))
+  (pps ppx_jane -compare-require-explicit-locality)))

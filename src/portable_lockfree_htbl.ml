@@ -64,7 +64,7 @@
    as marking a bucket as being [Resize _]d is faster than a regular update of a bucket. *)
 
 open Base
-module Backoff = Stdlib.Backoff
+module Backoff = Basement.Backoff
 open Portable_kernel
 include Portable_lockfree_htbl_intf
 

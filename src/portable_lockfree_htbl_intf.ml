@@ -19,7 +19,7 @@ type 'k hashable = (module Hashable with type t = 'k)
 
 module type S_basic = sig @@ portable
   (** Represents a lock-free hash table mapping keys of type ['k] to values of type ['v]. *)
-  type (!'k, !'v) t : value mod contended non_float portable
+  type (!'k, !'v) t : value mod contended non_float portable unyielding
 
   (** [create (module Key)] creates a new empty lock-free hash table.
 
